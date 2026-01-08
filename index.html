@@ -19,8 +19,8 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { 
-  PlusCircle, 
-  MinusCircle, 
+  Plus, 
+  Minus, 
   Wallet, 
   TrendingUp, 
   TrendingDown, 
@@ -31,7 +31,9 @@ import {
   Bot,
   BrainCircuit,
   Loader2,
-  CalendarClock
+  CalendarClock,
+  ArrowRight,
+  CreditCard
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -53,7 +55,7 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const apiKey = ""; // Injected by environment
 
 // --- Colors & Categories ---
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#FF6B6B'];
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
 const INCOME_CATEGORIES = ['Зарплата', 'Подработка', 'Подарки', 'Инвестиции', 'Другое'];
 const EXPENSE_CATEGORIES = ['Продукты', 'Жилье', 'Транспорт', 'Развлечения', 'Здоровье', 'Одежда', 'Техника', 'Другое'];
@@ -110,7 +112,7 @@ export default function FinanceTracker() {
   const [description, setDescription] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
-  const [transactionDate, setTransactionDate] = useState(''); // New date state
+  const [transactionDate, setTransactionDate] = useState(''); 
   const [activeTab, setActiveTab] = useState<'list' | 'stats'>('list');
 
   // AI State
@@ -118,7 +120,6 @@ export default function FinanceTracker() {
   const [magicLoading, setMagicLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
-  // New state for forecast
   const [forecast, setForecast] = useState('');
   const [forecastLoading, setForecastLoading] = useState(false);
 
@@ -143,7 +144,6 @@ export default function FinanceTracker() {
     return () => unsubscribe();
   }, []);
 
-  // Set default date to current local time string for input
   useEffect(() => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -217,7 +217,6 @@ export default function FinanceTracker() {
     if (!user || !amount) return;
 
     try {
-      // Create date object from input or default to now
       const dateObj = transactionDate ? new Date(transactionDate) : new Date();
 
       await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'transactions'), {
@@ -225,13 +224,12 @@ export default function FinanceTracker() {
         type,
         category,
         description,
-        date: dateObj, // Save selected date
+        date: dateObj, 
         createdAt: Date.now()
       });
 
       setAmount('');
       setDescription('');
-      // Reset date to current time for next entry
       const now = new Date();
       now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
       setTransactionDate(now.toISOString().slice(0, 16));
@@ -289,9 +287,7 @@ export default function FinanceTracker() {
         }
         setDescription(parsed.description || magicInput);
         
-        // Handle Date from AI
         if (parsed.date) {
-          // Adjust timezone for input field (local time)
           const aiDate = new Date(parsed.date);
           if (!isNaN(aiDate.getTime())) {
              aiDate.setMinutes(aiDate.getMinutes() - aiDate.getTimezoneOffset());
@@ -337,7 +333,6 @@ export default function FinanceTracker() {
   const handleAnalyzeFinances = async () => {
     setAiLoading(true);
     
-    // Include last 10 transactions with dates for better context
     const recentHistory = transactions.slice(0, 10).map(t => {
       const dateStr = t.date ? new Date(t.date.seconds * 1000).toLocaleDateString('ru-RU') : 'N/A';
       return `${dateStr}: ${t.type === 'income' ? '+' : '-'}${t.amount} (${t.category})`;
@@ -361,7 +356,7 @@ export default function FinanceTracker() {
       
       Give a response in Russian.
       1. Briefly comment on the balance.
-      2. Analyze spending habits based on the recent transactions (e.g., "Spending a lot lately on...").
+      2. Analyze spending habits.
       3. Give 2-3 specific, actionable tips.
       4. Keep it encouraging and under 150 words. Use emojis.
     `;
@@ -380,7 +375,7 @@ export default function FinanceTracker() {
     const date = new Date(timestamp.seconds * 1000);
     return new Intl.DateTimeFormat('ru-RU', {
       day: 'numeric',
-      month: 'short',
+      month: 'long',
       hour: '2-digit',
       minute: '2-digit'
     }).format(date);
@@ -389,183 +384,205 @@ export default function FinanceTracker() {
   // --- Render ---
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50 text-slate-500">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-2"></div>
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-500 font-sans">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mr-2"></div>
         Загрузка данных...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans text-slate-800">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 font-sans text-slate-800 pb-12">
+      {/* Top Decoration */}
+      <div className="bg-gradient-to-r from-indigo-600 to-violet-600 h-48 w-full absolute top-0 left-0 z-0"></div>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10 pt-8">
         
-        {/* Header */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between bg-white p-6 rounded-2xl shadow-sm">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <Wallet className="w-8 h-8 text-blue-600" />
-              Финансовый Помощник
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">Умный учет с Gemini AI ✨</p>
+        {/* Header & Balance Card */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="md:col-span-2 text-white flex flex-col justify-center">
+             <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Wallet className="w-6 h-6 text-white" />
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight">Финансовый Помощник</h1>
+             </div>
+             <p className="text-indigo-100 text-sm ml-1">Умный учет ваших доходов и расходов с поддержкой AI</p>
           </div>
-          <div className="mt-4 md:mt-0 text-right">
-            <p className="text-sm text-slate-500">Текущий баланс</p>
-            <p className={`text-3xl font-bold ${stats.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white/50">
+            <p className="text-sm text-slate-500 font-medium mb-1">Общий баланс</p>
+            <p className={`text-4xl font-extrabold tracking-tight ${stats.balance >= 0 ? 'text-slate-800' : 'text-red-500'}`}>
               {formatCurrency(stats.balance)}
             </p>
-          </div>
-        </header>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border-l-4 border-emerald-500">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-5 h-5 text-emerald-500" />
-              <span className="text-sm font-medium text-slate-500">Доходы</span>
+            <div className="mt-2 flex items-center gap-2 text-xs text-slate-400 bg-slate-50 inline-block px-2 py-1 rounded-md">
+               <CalendarClock className="w-3 h-3" />
+               <span>Сегодня, {new Date().toLocaleDateString('ru-RU')}</span>
             </div>
-            <p className="text-xl md:text-2xl font-bold text-slate-800">{formatCurrency(stats.totalIncome)}</p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border-l-4 border-red-500">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingDown className="w-5 h-5 text-red-500" />
-              <span className="text-sm font-medium text-slate-500">Расходы</span>
-            </div>
-            <p className="text-xl md:text-2xl font-bold text-slate-800">{formatCurrency(stats.totalExpense)}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column: Input Form */}
-          <div className="lg:col-span-1 space-y-6">
-            
-            {/* ✨ Magic Input Section */}
-            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-6 rounded-2xl shadow-md text-white">
-               <h2 className="text-md font-bold mb-3 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-yellow-300" />
-                Умное добавление
-              </h2>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={magicInput}
-                  onChange={(e) => setMagicInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleMagicParse()}
-                  placeholder='Напр: "Вчера такси 2000"'
-                  className="w-full pl-4 pr-10 py-2 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                  disabled={magicLoading}
-                />
-                <button 
-                  onClick={handleMagicParse}
-                  disabled={magicLoading}
-                  className="absolute right-1 top-1 p-1 hover:bg-slate-200 rounded-md transition-colors"
-                >
-                  {magicLoading ? <Loader2 className="w-4 h-4 text-slate-500 animate-spin" /> : <Sparkles className="w-4 h-4 text-violet-600" />}
-                </button>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
               </div>
-              <p className="text-xs text-indigo-200 mt-2">
-                Gemini распознает дату, категорию и сумму.
+              <span className="text-sm font-medium text-slate-500">Доходы</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800 ml-1">{formatCurrency(stats.totalIncome)}</p>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <TrendingDown className="w-5 h-5 text-red-600" />
+              </div>
+              <span className="text-sm font-medium text-slate-500">Расходы</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-800 ml-1">{formatCurrency(stats.totalExpense)}</p>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Left Column: Forms (4 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            
+            {/* ✨ Magic Input Card */}
+            <div className="relative group overflow-hidden bg-gradient-to-br from-indigo-600 to-purple-600 p-6 rounded-3xl shadow-lg text-white">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-10 translate-x-10 blur-2xl"></div>
+               
+               <h2 className="text-lg font-bold mb-3 flex items-center gap-2 relative z-10">
+                <Sparkles className="w-5 h-5 text-yellow-300" />
+                Быстрый ввод
+              </h2>
+              <p className="text-xs text-indigo-100 mb-4 relative z-10 opacity-90">
+                Напишите как есть, например: <br/> <span className="italic opacity-75">"Вчера такси 2000"</span>
               </p>
+              
+              <div className="relative z-10">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={magicInput}
+                    onChange={(e) => setMagicInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleMagicParse()}
+                    placeholder='Что купили?'
+                    className="w-full px-4 py-3 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-400/30 placeholder:text-slate-400 shadow-inner"
+                    disabled={magicLoading}
+                  />
+                  <button 
+                    onClick={handleMagicParse}
+                    disabled={magicLoading}
+                    className="bg-white/20 hover:bg-white/30 text-white p-3 rounded-xl transition-all disabled:opacity-50 backdrop-blur-sm"
+                  >
+                    {magicLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Standard Form */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <PlusCircle className="w-5 h-5 text-blue-500" />
-                Ручной ввод
-              </h2>
+            {/* Standard Form Card */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-indigo-500" />
+                  Новая запись
+                </h2>
+              </div>
               
-              <form onSubmit={handleAddTransaction} className="space-y-4">
+              <form onSubmit={handleAddTransaction} className="space-y-5">
                 {/* Type Switcher */}
-                <div className="flex bg-slate-100 p-1 rounded-lg">
+                <div className="flex bg-slate-100 p-1.5 rounded-2xl">
                   <button
                     type="button"
                     onClick={() => { setType('income'); setCategory(INCOME_CATEGORIES[0]); }}
-                    className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
                       type === 'income' 
                         ? 'bg-white text-emerald-600 shadow-sm' 
                         : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
+                    <Plus className="w-4 h-4" />
                     Доход
                   </button>
                   <button
                     type="button"
                     onClick={() => { setType('expense'); setCategory(EXPENSE_CATEGORIES[0]); }}
-                    className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
                       type === 'expense' 
-                        ? 'bg-white text-red-600 shadow-sm' 
+                        ? 'bg-white text-rose-500 shadow-sm' 
                         : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
+                    <Minus className="w-4 h-4" />
                     Расход
                   </button>
                 </div>
 
                 {/* Amount */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Сумма</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₸</span>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">Сумма</label>
+                  <div className="relative group">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">₸</span>
                     <input
                       type="number"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0"
-                      className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                      className="w-full pl-8 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 group-hover:bg-white transition-colors text-lg font-medium"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Category */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Категория</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
+                {/* Category & Date Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">Категория</label>
+                    <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="w-full px-3 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
+                    >
+                        {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
+                    </div>
 
-                {/* Date & Time */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Дата и время</label>
-                  <div className="relative">
-                     <CalendarClock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                     <input
-                      type="datetime-local"
-                      value={transactionDate}
-                      onChange={(e) => setTransactionDate(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-                      required
-                    />
-                  </div>
+                    <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">Дата</label>
+                    <input
+                        type="datetime-local"
+                        value={transactionDate}
+                        onChange={(e) => setTransactionDate(e.target.value)}
+                        className="w-full px-3 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-xs"
+                        required
+                        />
+                    </div>
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Описание (опционально)</label>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">Описание</label>
                   <input
                     type="text"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Например: Аванс, Такси..."
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-sm"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className={`w-full py-3 rounded-lg text-white font-medium shadow-md transition-colors ${
+                  className={`w-full py-4 rounded-xl text-white font-bold shadow-lg transition-transform active:scale-[0.98] ${
                     type === 'income' 
-                      ? 'bg-emerald-500 hover:bg-emerald-600' 
-                      : 'bg-red-500 hover:bg-red-600'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-emerald-200' 
+                      : 'bg-gradient-to-r from-rose-500 to-pink-500 hover:shadow-rose-200'
                   }`}
                 >
                   Добавить запись
@@ -574,16 +591,18 @@ export default function FinanceTracker() {
             </div>
           </div>
 
-          {/* Right Column: List & Stats */}
-          <div className="lg:col-span-2 flex flex-col h-full space-y-6">
+          {/* Right Column: List & Stats (8 cols) */}
+          <div className="lg:col-span-7 flex flex-col h-full space-y-6">
             
-            {/* Tabs */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col">
-              <div className="border-b border-slate-100 flex">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col min-h-[600px]">
+              {/* Custom Tabs */}
+              <div className="p-2 bg-slate-50 m-2 rounded-2xl flex">
                 <button
                   onClick={() => setActiveTab('list')}
-                  className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    activeTab === 'list' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:bg-slate-50'
+                  className={`flex-1 py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all ${
+                    activeTab === 'list' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   <List className="w-4 h-4" />
@@ -591,8 +610,10 @@ export default function FinanceTracker() {
                 </button>
                 <button
                   onClick={() => setActiveTab('stats')}
-                  className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    activeTab === 'stats' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:bg-slate-50'
+                  className={`flex-1 py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all ${
+                    activeTab === 'stats' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   <PieChartIcon className="w-4 h-4" />
@@ -600,43 +621,45 @@ export default function FinanceTracker() {
                 </button>
               </div>
 
-              <div className="p-0 flex-1 overflow-y-auto min-h-[400px]">
+              <div className="p-0 flex-1 overflow-y-auto custom-scrollbar">
                 {activeTab === 'list' ? (
                   transactions.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8">
-                      <Wallet className="w-12 h-12 mb-2 opacity-20" />
-                      <p>Записей пока нет</p>
-                      <p className="text-xs">Добавьте свой первый доход или расход</p>
+                    <div className="h-full flex flex-col items-center justify-center text-slate-300 p-8">
+                      <div className="bg-slate-50 p-6 rounded-full mb-4">
+                         <Wallet className="w-12 h-12 opacity-50" />
+                      </div>
+                      <p className="font-medium text-lg">Пока пусто</p>
+                      <p className="text-sm">Добавьте первую запись</p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100">
+                    <div className="p-4 space-y-3">
                       {transactions.map((t) => (
-                        <div key={t.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              t.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
+                        <div key={t.id} className="p-4 bg-white border border-slate-100 rounded-2xl flex items-center justify-between hover:shadow-md hover:border-indigo-100 transition-all group">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                              t.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
                             }`}>
-                              {t.type === 'income' ? <PlusCircle className="w-5 h-5" /> : <MinusCircle className="w-5 h-5" />}
+                              {t.type === 'income' ? <Plus className="w-6 h-6" /> : <Minus className="w-6 h-6" />}
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800">{t.category}</p>
+                              <p className="font-bold text-slate-800 text-sm">{t.category}</p>
                               <div className="flex flex-col">
-                                {t.description && <p className="text-xs text-slate-500">{t.description}</p>}
-                                <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                {t.description && <p className="text-xs text-slate-500 mb-0.5">{t.description}</p>}
+                                <p className="text-[10px] text-slate-400 font-medium">
                                   {formatDate(t.date)}
                                 </p>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <span className={`font-bold ${
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={`font-bold text-base ${
                               t.type === 'income' ? 'text-emerald-600' : 'text-slate-800'
                             }`}>
                               {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                             </span>
                             <button 
                               onClick={() => handleDelete(t.id)}
-                              className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                              className="text-slate-300 hover:text-rose-500 transition-colors p-1"
                               title="Удалить"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -647,95 +670,110 @@ export default function FinanceTracker() {
                     </div>
                   )
                 ) : (
-                  <div className="h-full flex flex-col p-6 space-y-4">
+                  <div className="h-full flex flex-col p-6 space-y-6">
                     
                     {/* Forecast Block */}
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/50 rounded-2xl p-5 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-200/20 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
+                      <div className="flex items-center justify-between mb-3 relative z-10">
                          <h3 className="font-bold text-emerald-900 flex items-center gap-2">
-                           <Sparkles className="w-4 h-4" />
+                           <Sparkles className="w-4 h-4 text-emerald-600" />
                            Прогноз бюджета
                          </h3>
                          <button 
                            onClick={handleForecast}
                            disabled={forecastLoading}
-                           className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-full hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                           className="text-xs bg-white text-emerald-700 font-semibold px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all disabled:opacity-50 flex items-center gap-2"
                          >
                            {forecastLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : 'Спрогнозировать'}
                          </button>
                       </div>
-                      {forecast ? (
-                        <p className="text-sm text-emerald-800 leading-relaxed whitespace-pre-wrap">
-                          {forecast}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-emerald-600 italic">
-                          Узнайте, сколько вы, вероятно, потратите в следующем месяце.
-                        </p>
-                      )}
+                      <div className="relative z-10 min-h-[60px]">
+                        {forecast ? (
+                            <p className="text-sm text-emerald-800 leading-relaxed font-medium">
+                            {forecast}
+                            </p>
+                        ) : (
+                            <p className="text-xs text-emerald-600/70 italic">
+                            Нажмите кнопку, чтобы AI проанализировал ваши траты и предсказал бюджет на следующий месяц.
+                            </p>
+                        )}
+                      </div>
                     </div>
 
                     {/* AI Analysis Block */}
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
+                    <div className="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100/50 rounded-2xl p-5 relative overflow-hidden">
+                       <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-200/20 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
+                      <div className="flex items-center justify-between mb-3 relative z-10">
                          <h3 className="font-bold text-indigo-900 flex items-center gap-2">
-                           <BrainCircuit className="w-5 h-5" />
-                           Советник
+                           <BrainCircuit className="w-5 h-5 text-indigo-600" />
+                           AI Советник
                          </h3>
                          <button 
                            onClick={handleAnalyzeFinances}
                            disabled={aiLoading}
-                           className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-full hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                           className="text-xs bg-white text-indigo-700 font-semibold px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all disabled:opacity-50 flex items-center gap-2"
                          >
                            {aiLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Bot className="w-3 h-3"/>}
                            {aiAnalysis ? 'Обновить' : 'Анализ'}
                          </button>
                       </div>
                       
-                      {aiAnalysis ? (
-                        <div className="text-sm text-indigo-800 leading-relaxed whitespace-pre-wrap animate-in fade-in duration-500">
-                          {aiAnalysis}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-indigo-400 italic">
-                          Нажмите кнопку, чтобы получить рекомендации по экономии.
-                        </p>
-                      )}
+                      <div className="relative z-10 min-h-[60px]">
+                        {aiAnalysis ? (
+                            <div className="text-sm text-indigo-900 leading-relaxed font-medium whitespace-pre-wrap animate-in fade-in duration-500">
+                            {aiAnalysis}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-indigo-400 italic">
+                            Узнайте, на чем можно сэкономить в этом месяце.
+                            </p>
+                        )}
+                      </div>
                     </div>
 
-                    {stats.pieData.length > 0 ? (
-                      <div className="w-full h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={stats.pieData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={100}
-                              fill="#8884d8"
-                              paddingAngle={5}
-                              dataKey="value"
-                            >
-                              {stats.pieData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                            <Legend />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <div className="text-center text-slate-400 py-10">
-                        <PieChartIcon className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                        <p>Нет данных о расходах</p>
-                      </div>
-                    )}
-                    <div className="mt-2 text-center">
-                      <p className="text-sm text-slate-500">Всего расходов</p>
-                      <p className="text-xl font-bold text-slate-800">{formatCurrency(stats.totalExpense)}</p>
+                    {/* Chart Area */}
+                    <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-slate-100/50 p-4">
+                        {stats.pieData.length > 0 ? (
+                        <div className="w-full h-full relative">
+                            <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie
+                                data={stats.pieData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={120}
+                                paddingAngle={4}
+                                dataKey="value"
+                                cornerRadius={6}
+                                >
+                                {stats.pieData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                                ))}
+                                </Pie>
+                                <Tooltip 
+                                    formatter={(value: number) => formatCurrency(value)} 
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle"/>
+                            </PieChart>
+                            </ResponsiveContainer>
+                            {/* Center Text */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -mt-6 text-center pointer-events-none">
+                                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Расходы</p>
+                                <p className="text-xl font-bold text-slate-800">{formatCurrency(stats.totalExpense)}</p>
+                            </div>
+                        </div>
+                        ) : (
+                        <div className="text-center text-slate-400">
+                            <PieChartIcon className="w-16 h-16 mx-auto mb-3 opacity-20" />
+                            <p className="font-medium">Нет данных</p>
+                            <p className="text-xs">Диаграмма появится после добавления расходов</p>
+                        </div>
+                        )}
                     </div>
+
                   </div>
                 )}
               </div>
@@ -744,9 +782,6 @@ export default function FinanceTracker() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
     </div>
   );
 }
