@@ -1,23 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInWithCustomToken, 
-  signInAnonymously, 
-  onAuthStateChanged, 
-  User 
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot, 
-  serverTimestamp, 
-  query,
-  Timestamp
-} from 'firebase/firestore';
 import { 
   Plus, 
   Minus, 
@@ -31,9 +12,11 @@ import {
   Bot,
   BrainCircuit,
   Loader2,
-  CalendarClock,
+  Calendar,
   ArrowRight,
-  CreditCard
+  CreditCard,
+  Download,
+  Upload
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -44,15 +27,10 @@ import {
   Legend 
 } from 'recharts';
 
-// --- Firebase Configuration ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
 // --- Gemini API Key ---
-const apiKey = ""; // Injected by environment
+// ВАЖНО: Если вы размещаете это на GitHub, вставьте сюда свой ключ.
+// Получить ключ можно тут: https://aistudio.google.com/app/apikey
+const apiKey = "gen-lang-client-0668458191"; 
 
 // --- Colors & Categories ---
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
@@ -69,12 +47,15 @@ interface Transaction {
   type: TransactionType;
   category: string;
   description: string;
-  date: any; // Firestore timestamp
+  date: string; // ISO String for local storage compatibility
   createdAt: number;
 }
 
 // --- Helper: Call Gemini ---
 async function callGemini(prompt: string): Promise<string> {
+  if (!apiKey) {
+      return "⚠️ API ключ не найден. Пожалуйста, добавьте apiKey в код для работы AI.";
+  }
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
@@ -97,13 +78,12 @@ async function callGemini(prompt: string): Promise<string> {
     return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "";
+    return "Ошибка при обращении к AI. Проверьте консоль или API ключ.";
   }
 }
 
 // --- Main Component ---
-export default function FinanceTracker() {
-  const [user, setUser] = useState<User | null>(null);
+export default function FinanceTrackerLocal() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -123,64 +103,33 @@ export default function FinanceTracker() {
   const [forecast, setForecast] = useState('');
   const [forecastLoading, setForecastLoading] = useState(false);
 
-  // --- Auth & Data Fetching ---
+  // --- Data Management (LocalStorage) ---
   useEffect(() => {
-    const initAuth = async () => {
+    // Load data on mount
+    const savedData = localStorage.getItem('finance_tracker_data');
+    if (savedData) {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("Auth error:", error);
+        const parsed = JSON.parse(savedData);
+        setTransactions(parsed);
+      } catch (e) {
+        console.error("Failed to parse local storage", e);
       }
-    };
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
+    }
+    setLoading(false);
   }, []);
+
+  // Save data whenever it changes
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem('finance_tracker_data', JSON.stringify(transactions));
+    }
+  }, [transactions, loading]);
 
   useEffect(() => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     setTransactionDate(now.toISOString().slice(0, 16));
   }, []);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const q = query(
-      collection(db, 'artifacts', appId, 'users', user.uid, 'transactions')
-    );
-
-    const unsubscribeSnapshot = onSnapshot(q, 
-      (snapshot) => {
-        const loadedData: Transaction[] = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Transaction));
-        
-        loadedData.sort((a, b) => {
-          const timeA = a.date?.seconds || 0;
-          const timeB = b.date?.seconds || 0;
-          return timeB - timeA;
-        });
-
-        setTransactions(loadedData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Firestore error:", error);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribeSnapshot();
-  }, [user]);
 
   // --- Derived State (Statistics) ---
   const stats = useMemo(() => {
@@ -214,38 +163,32 @@ export default function FinanceTracker() {
   // --- Handlers ---
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !amount) return;
+    if (!amount) return;
 
-    try {
-      const dateObj = transactionDate ? new Date(transactionDate) : new Date();
+    const dateObj = transactionDate ? new Date(transactionDate) : new Date();
 
-      await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'transactions'), {
-        amount: parseFloat(amount),
-        type,
-        category,
-        description,
-        date: dateObj, 
-        createdAt: Date.now()
-      });
+    const newTransaction: Transaction = {
+      id: crypto.randomUUID(), // Generate unique ID locally
+      amount: parseFloat(amount),
+      type,
+      category,
+      description,
+      date: dateObj.toISOString(),
+      createdAt: Date.now()
+    };
 
-      setAmount('');
-      setDescription('');
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      setTransactionDate(now.toISOString().slice(0, 16));
-    } catch (error) {
-      console.error("Error adding doc:", error);
-    }
+    setTransactions(prev => [newTransaction, ...prev]);
+
+    setAmount('');
+    setDescription('');
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    setTransactionDate(now.toISOString().slice(0, 16));
   };
 
-  const handleDelete = async (id: string) => {
-    if (!user) return;
+  const handleDelete = (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
-      try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'transactions', id));
-      } catch (error) {
-        console.error("Error deleting:", error);
-      }
+      setTransactions(prev => prev.filter(t => t.id !== id));
     }
   };
 
@@ -274,6 +217,10 @@ export default function FinanceTracker() {
     try {
       const result = await callGemini(prompt);
       const cleanJson = result.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      // Basic check if it looks like JSON
+      if (!cleanJson.startsWith('{')) throw new Error("Not JSON");
+
       const parsed = JSON.parse(cleanJson);
 
       if (parsed && parsed.amount) {
@@ -301,7 +248,7 @@ export default function FinanceTracker() {
       }
     } catch (e) {
       console.error("Magic parse failed", e);
-      alert("Ошибка AI. Попробуйте вручную.");
+      alert("Не удалось обработать запрос. Проверьте API ключ или попробуйте вручную.");
     } finally {
       setMagicLoading(false);
     }
@@ -310,7 +257,7 @@ export default function FinanceTracker() {
   const handleForecast = async () => {
     setForecastLoading(true);
     const history = transactions.slice(0, 20).map(t => 
-      `${new Date(t.date?.seconds * 1000).toLocaleDateString()}: ${t.amount} (${t.category})`
+      `${new Date(t.date).toLocaleDateString()}: ${t.amount} (${t.category})`
     ).join('\n');
 
     const prompt = `
@@ -334,7 +281,7 @@ export default function FinanceTracker() {
     setAiLoading(true);
     
     const recentHistory = transactions.slice(0, 10).map(t => {
-      const dateStr = t.date ? new Date(t.date.seconds * 1000).toLocaleDateString('ru-RU') : 'N/A';
+      const dateStr = t.date ? new Date(t.date).toLocaleDateString('ru-RU') : 'N/A';
       return `${dateStr}: ${t.type === 'income' ? '+' : '-'}${t.amount} (${t.category})`;
     }).join('\n');
 
@@ -370,9 +317,9 @@ export default function FinanceTracker() {
     return new Intl.NumberFormat('ru-KZ', { style: 'currency', currency: 'KZT', maximumFractionDigits: 0 }).format(val);
   };
 
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp.seconds * 1000);
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
     return new Intl.DateTimeFormat('ru-RU', {
       day: 'numeric',
       month: 'long',
@@ -407,7 +354,7 @@ export default function FinanceTracker() {
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight">Финансовый Помощник</h1>
              </div>
-             <p className="text-indigo-100 text-sm ml-1">Умный учет ваших доходов и расходов с поддержкой AI</p>
+             <p className="text-indigo-100 text-sm ml-1">Автономная версия (Без сервера)</p>
           </div>
           
           <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white/50">
@@ -416,7 +363,7 @@ export default function FinanceTracker() {
               {formatCurrency(stats.balance)}
             </p>
             <div className="mt-2 flex items-center gap-2 text-xs text-slate-400 bg-slate-50 inline-block px-2 py-1 rounded-md">
-               <CalendarClock className="w-3 h-3" />
+               <Calendar className="w-3 h-3" />
                <span>Сегодня, {new Date().toLocaleDateString('ru-RU')}</span>
             </div>
           </div>
@@ -482,6 +429,11 @@ export default function FinanceTracker() {
                   </button>
                 </div>
               </div>
+              {!apiKey && (
+                  <p className="text-[10px] text-red-200 mt-2 relative z-10">
+                      * Для работы AI требуется добавить API ключ в код.
+                  </p>
+              )}
             </div>
 
             {/* Standard Form Card */}
@@ -699,6 +651,11 @@ export default function FinanceTracker() {
                             </p>
                         )}
                       </div>
+                      {!apiKey && (
+                          <p className="text-[10px] text-red-500 mt-2 relative z-10 font-bold bg-white/50 p-1 rounded">
+                              * Требуется API ключ
+                          </p>
+                      )}
                     </div>
 
                     {/* AI Analysis Block */}
@@ -730,6 +687,11 @@ export default function FinanceTracker() {
                             </p>
                         )}
                       </div>
+                       {!apiKey && (
+                          <p className="text-[10px] text-red-500 mt-2 relative z-10 font-bold bg-white/50 p-1 rounded">
+                              * Требуется API ключ
+                          </p>
+                      )}
                     </div>
 
                     {/* Chart Area */}
